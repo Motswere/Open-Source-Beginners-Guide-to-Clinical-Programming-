@@ -1,0 +1,58 @@
+
+%macro qs_recode in = , 
+  out = , 
+  qfmt_c = , /* use only if character */ 
+  qfmt_n = , /* use only if numeric */
+  type = , /* use C for char and N for numeric */ 
+  invars = , /* list variable names in input dataset */ 
+  outvars = , /* list variable names in output dataset, must have same number elements as above */ 
+  pref = , /* for QSSCAT */ 
+  remblank = ); /* to remove any obs that have QSORRES missing */ options missing = ' ';
+  
+data &out; 
+  length qstestcd $8 qsorres qsstresc $200 &outvars $100; 
+    set &in;
+    
+  %if &pref gt '' %then %do; 
+    length qsgrpid $25 ; 
+    qsgrpid = upcase(scan(&pref,1,":")); 
+  %end;
+  
+    array raw_q (*) &invars; 
+    array conv_q (*) &outvars;
+    
+    do i = 1 to dim(conv_q);
+    
+        qstestcd = vname(conv_q(i)); 
+        qstestcd = upcase(qstestcd);
+        
+      %if &type=C %then %do; 
+        qsorres = left(put(raw_q(i),&qfmt_c.)); 
+        if qsorres in ('YES' 'Yes' 'yes') then do; 
+          qsorres = 'Y'; 
+          qsstresc = 'Y'; 
+        end; 
+        else if qsorres in ('NO' 'No' 'no') then do; 
+          qsorres = 'N'; 
+          qsstresc = 'N'; 
+        end; 
+        else qsstresc = left(put(raw_q(i), $200.));; 
+    %end;
+    
+    %else %if %upcase(&type)= N %then %do; 
+        qsorres = left(put(raw_q(i),&qfmt_n.));
+        qsstresc = qsorres; 
+        qsstresn = raw_q(i); 
+    %end; 
+      output; 
+  end; 
+run;
+
+%if %upcase(&remblank) = YES %then %do; 
+  data &out; 
+  set &out; 
+    if qsorres ne '' then output; 
+    run; 
+%end; 
+
+%mend qs_recode;
