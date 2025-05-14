@@ -1,1 +1,63 @@
+qs_recode <- function(in_data, 
+                      qfmt_c = NULL, # use only if character
+                      qfmt_n = NULL, # use only if numeric
+                      type = NULL,   # use "C" for char and "N" for numeric
+                      invars,        # list variable names in input dataset
+                      outvars,       # list variable names in output dataset
+                      pref = NULL,   # for QSSCAT
+                      remblank = NULL) { # to remove any rows with missing QSORRES
+  library(dplyr)
 
+  # Create a new data frame for output
+  out_data <- in_data %>%
+    mutate(across(all_of(outvars), ~ NA_character_)) # Initialize new columns with NA
+
+  if (!is.null(pref)) {
+    # Create qsgrpid column if 'pref' is provided
+    out_data <- out_data %>%
+      mutate(qsgrpid = toupper(sub(":.*", "", pref)))
+  }
+
+  # Iterate through input variables and process them
+  for (i in seq_along(invars)) {
+    raw_q <- invars[i]  # Input variable
+    conv_q <- outvars[i] # Corresponding output variable
+
+    qstestcd <- toupper(conv_q) # Set qstestcd to the name of the output variable
+
+    if (type == "C") {
+      out_data <- out_data %>%
+        mutate(
+          qsorres = case_when(
+            !!sym(raw_q) %in% c("YES", "Yes", "yes") ~ "Y",
+            !!sym(raw_q) %in% c("NO", "No", "no") ~ "N",
+            TRUE ~ as.character(!!sym(raw_q))
+          ),
+          qsstresc = case_when(
+            !!sym(raw_q) %in% c("YES", "Yes", "yes") ~ "Y",
+            !!sym(raw_q) %in% c("NO", "No", "no") ~ "N",
+            TRUE ~ as.character(!!sym(raw_q))
+          )
+        )
+    } else if (toupper(type) == "N") {
+      out_data <- out_data %>%
+        mutate(
+          qsorres = formatC(!!sym(raw_q), format = qfmt_n),
+          qsstresc = qsorres,
+          qsstresn = !!sym(raw_q)
+        )
+    }
+  }
+
+  # Remove rows with missing QSORRES if remblank is "YES"
+  if (!is.null(remblank) && toupper(remblank) == "YES") {
+    out_data <- out_data %>%
+      filter(qsorres != "")
+  }
+
+  return(out_data)
+}
+
+# Example usage:
+# Assuming `input_data` is your input data frame
+# output_data <- qs_recode(input_data, type = "C", invars = c("var1", "var2"), outvars = c("out1", "out2"))
