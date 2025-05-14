@@ -1,3 +1,6 @@
+AS PROVIDED BY COPILOT
+--------------------------------------------------------------------------------------
+
 qs_recode <- function(in_data, 
                       qfmt_c = NULL, # use only if character
                       qfmt_n = NULL, # use only if numeric
